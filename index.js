@@ -1,13 +1,12 @@
-const express = require('express');
+const express = require("express");
 const app = express();
-const cors = require('cors');
+const cors = require("cors");
 const port = process.env.PORT || 5000;
-require('dotenv').config();
+require("dotenv").config();
 
 // mongodb
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.jucoem4.mongodb.net/?retryWrites=true&w=majority`;
-
 
 // middleware
 app.use(express.json());
@@ -31,20 +30,27 @@ async function run() {
     const database = client.db("bistroDB");
     const menuCollection = database.collection("menu");
     const reviewsCollection = database.collection("reviews");
+    const cartsCollection = database.collection("carts");
 
-      //   menu api
-      app.get('/menu', async (req, res) => {
-          const result = await menuCollection.find().toArray();
-          res.send(result);
-      })
-      
-      //   reviews api
-      app.get('/reviews', async (req, res) => {
-          const result = await reviewsCollection.find().toArray();
-          res.send(result);
-      })
+    //   menu api
+    app.get("/menu", async (req, res) => {
+      const result = await menuCollection.find().toArray();
+      res.send(result);
+    });
 
-      // Send a ping to confirm a successful connection
+    //   reviews api
+    app.get("/reviews", async (req, res) => {
+      const result = await reviewsCollection.find().toArray();
+      res.send(result);
+    });
+
+    // add to cart
+    app.post("/carts", async (req, res) => {
+      const cartItem = req.body;
+      const result = await cartsCollection.insertOne(cartItem);
+      res.send(result);
+    });
+    // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
 
     console.log(
@@ -57,8 +63,7 @@ async function run() {
 }
 run().catch(console.dir);
 
-
 // port
 app.listen(port, () => {
-    console.log(`boss is siting on port ${port}`);
-})
+  console.log(`boss is siting on port ${port}`);
+});
