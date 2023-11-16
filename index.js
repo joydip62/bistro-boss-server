@@ -5,7 +5,7 @@ const port = process.env.PORT || 5000;
 require("dotenv").config();
 
 // mongodb
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.jucoem4.mongodb.net/?retryWrites=true&w=majority`;
 
 // middleware
@@ -28,10 +28,18 @@ async function run() {
 
     // Get the database and collection on which to run the operation
     const database = client.db("bistroDB");
+    const userCollection = database.collection("users");
     const menuCollection = database.collection("menu");
     const reviewsCollection = database.collection("reviews");
     const cartsCollection = database.collection("carts");
 
+    // user api
+    app.post('/users', async (req, res) => {
+      const user = req.body;
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    })
+    
     //   menu api
     app.get("/menu", async (req, res) => {
       const result = await menuCollection.find().toArray();
@@ -44,12 +52,28 @@ async function run() {
       res.send(result);
     });
 
+    // get cart data
+    app.get('/carts', async (req, res) => {
+      const email = req.query.email;
+      const query = {email: email}
+      const result = await cartsCollection.find(query).toArray();
+      res.send(result);
+    })
     // add to cart
     app.post("/carts", async (req, res) => {
       const cartItem = req.body;
       const result = await cartsCollection.insertOne(cartItem);
       res.send(result);
     });
+    
+    // delete item from cart
+    app.delete("/carts/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await cartsCollection.deleteOne(query);
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
 
