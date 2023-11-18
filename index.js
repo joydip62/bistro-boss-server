@@ -34,12 +34,37 @@ async function run() {
     const cartsCollection = database.collection("carts");
 
     // user api
-    app.post('/users', async (req, res) => {
+    app.get("/users", async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+    app.post("/users", async (req, res) => {
       const user = req.body;
       const result = await userCollection.insertOne(user);
       res.send(result);
-    })
+    });
+    app.patch("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+
+      const updatedDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await userCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+
     
+    app.delete("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.deleteOne(query);
+      res.send(result);
+    });
+
+
     //   menu api
     app.get("/menu", async (req, res) => {
       const result = await menuCollection.find().toArray();
@@ -53,19 +78,19 @@ async function run() {
     });
 
     // get cart data
-    app.get('/carts', async (req, res) => {
+    app.get("/carts", async (req, res) => {
       const email = req.query.email;
-      const query = {email: email}
+      const query = { email: email };
       const result = await cartsCollection.find(query).toArray();
       res.send(result);
-    })
+    });
     // add to cart
     app.post("/carts", async (req, res) => {
       const cartItem = req.body;
       const result = await cartsCollection.insertOne(cartItem);
       res.send(result);
     });
-    
+
     // delete item from cart
     app.delete("/carts/:id", async (req, res) => {
       const id = req.params.id;
