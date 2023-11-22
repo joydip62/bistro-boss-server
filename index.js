@@ -38,21 +38,6 @@ async function run() {
     const cartsCollection = database.collection("carts");
     const paymentCollection = database.collection("payments");
 
-    // middleware
-    const verifyToken = (req, res, next) => {
-      if (!req.headers.authorization) {
-        return res.status(401).send({ message: "unauthorized access" });
-      }
-      const token = req.headers.authorization.split(" ")[1];
-      jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
-        if (err) {
-          return res.status(401).send({ message: "unauthorized access" });
-        }
-        res.decoded = decoded;
-        next();
-      });
-    };
-
     // jwt related api
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -62,9 +47,24 @@ async function run() {
       res.send({ token });
     });
 
+    // middleware
+ const verifyToken = (req, res, next) => {
+   if (!req.headers.authorization) {
+     return res.status(401).send({ message: "unauthorized access" });
+   }
+   const token = req.headers.authorization.split(" ")[1];
+   jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
+     if (err) {
+       return res.status(401).send({ message: "unauthorized access" });
+     }
+     req.decoded = decoded;
+     next();
+   });
+ };
+
     // use verify admin after verifyToken
     const verifyAdmin = async (req, res, next) => {
-      const email = res.decoded.email;
+      const email = req.decoded.email;
       const query = { email: email };
       const user = await userCollection.findOne(query);
       const isAdmin = user?.role === "admin";
@@ -160,7 +160,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch('/menu/:id', verifyToken, verifyAdmin, async(req, res) => {
+    app.patch("/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
       const item = req.body;
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
@@ -175,16 +175,14 @@ async function run() {
       };
       const result = await menuCollection.updateOne(filter, updatedDoc);
       res.send(result);
-    })
+    });
 
     app.delete("/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
-      const query = { _id: new ObjectId(id) }
+      const query = { _id: new ObjectId(id) };
       const result = await menuCollection.deleteOne(query);
       res.send(result);
-    })
-
-
+    });
 
     //   reviews api
     app.get("/reviews", async (req, res) => {
@@ -215,36 +213,48 @@ async function run() {
     });
 
     // payment intent
-   app.post("/create-payment-intent", async (req, res) => {
-     const { price } = req.body;
-     const amount = parseInt(price * 100);
-     console.log(amount, "amount inside the intent");
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      console.log(amount, "amount inside the intent");
 
-     const paymentIntent = await stripe.paymentIntents.create({
-       amount: amount,
-       currency: "usd",
-       payment_method_types: ["card"],
-     });
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "inr",
+        payment_method_types: ["card"],
+      });
 
-     res.send({
-       clientSecret: paymentIntent.client_secret,
-     });
-   });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
 
-    // payment data into database
+    app.get("/payments/:email", verifyToken, async (req, res) => {
+      const query = { email: req.params.email };
+      if (req.params.email !== req.decoded.email) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      const result = await paymentCollection.find(query).toArray();
+      // const result = await paymentCollection.find().toArray();
+      res.send(result);
+    });
+
     app.post("/payments", async (req, res) => {
       const payment = req.body;
       const paymentResult = await paymentCollection.insertOne(payment);
+
+      //  carefully delete each item from the cart
+      console.log("payment info", payment);
       const query = {
         _id: {
-          $in: payment.cartIds.map(id=> new ObjectId(id))
+          $in: payment.cartIds.map((id) => new ObjectId(id)),
         },
       };
-      const deleteResult = await cartsCollection.deleteMany(query)
+
+      const deleteResult = await cartsCollection.deleteMany(query);
+
       res.send({ paymentResult, deleteResult });
     });
-    // Send a ping to confirm a successful connection
-    // await client.db("admin").command({ ping: 1 });
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
